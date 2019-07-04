@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <head>
   <meta charset-"utf-8">
-  <title>practise</title>
+  <title>practiсe</title>
   <link rel="stylesheet" href="css/style.css">
   <script src="js/lib/three.min.js"></script>
   <script src="js/lib/dat.gui.min.js"></script>
@@ -11,7 +11,7 @@
       position: absolute; 
       top: 1px;
       width: 250px; 
-      height: 90px;
+      height: 150px;
       z-index: 999999; 
       background-color: #222; 
       padding: 5px;
@@ -20,25 +20,39 @@
       left: 15px; 
     }
     .camera {
-      float:left;
+      float: left;
       text-align: center;
       background-color: gray; 
       margin: 1%;
       width: 31%;
     }
     .interaction {
-      float:left;
+      float: left;
       text-align: center;
       background-color: gray; 
       margin: 1%;
       width: 48%;
     }
     .density {
-      float:left;
+      float: left;
       text-align: center;
       background-color: gray; 
       margin: 1%;
       width: 31%;
+    }
+    .moving {
+      float: left;
+      text-align: center;
+      background-color: gray; 
+      margin: 1%;
+      width: 48%;
+    }
+    .smoothness {
+      float:left;
+      text-align: center;
+      background-color: gray; 
+      margin: 1%;
+      width: 48%;
     }
     .leftTable {
       width: 60%;
@@ -48,7 +62,7 @@
 <body>
   <canvas id="canvas" autofocus></canvas>
   <div id="settings">
-    <table style="width: 100%; height: 80%">
+    <table id="tableSettings" style="width: 100%; height: 90%">
       <caption>Настройки</caption>
       <tr>
         <td class="leftTable">Камера</td>
@@ -66,12 +80,27 @@
         </td>
       </tr>
       <tr>
-        <td class="leftTable">Плотность</td>
+        <td class="leftTable">Концентрация</td>
         <td>
             <div class="density" id="density3">1/3</div>
             <div class="density" id="density4">1/4</div>
             <div class="density" id="density5">1/5</div>
         </td>
+      </tr>
+      <tr>
+        <td class="leftTable">Плавность передвижений</td>
+        <td>
+          <div class="smoothness" id="switchOn2">вкл</div>
+          <div class="smoothness" id="switchOff2">выкл</div>
+        </td>
+      </tr>
+      <tr>
+      <!--<tr id="adding" style="display: none">-->
+          <td class="leftTable">Перемещение куба в выделенную область</td>
+          <td>
+              <div class="moving" id="instantly">телепорт</div>
+              <div class="moving" id="route">маршрут</div>
+          </td>   
       </tr>
     </table>
   </div>

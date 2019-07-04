@@ -1,43 +1,19 @@
-function setCookie (name, value, expires, path, domain, secure) {
-  document.cookie = name + "=" + escape(value) +
-    ((expires) ? "; expires=" + expires : "") +
-    ((path) ? "; path=" + path : "") +
-    ((domain) ? "; domain=" + domain : "") +
-    ((secure) ? "; secure" : "");
-}
-function getCookie(name) {
-	var cookie = " " + document.cookie;
-	var search = " " + name + "=";
-	var setStr = null;
-	var offset = 0;
-	var end = 0;
-	if (cookie.length > 0) {
-		offset = cookie.indexOf(search);
-		if (offset != -1) {
-			offset += search.length;
-			end = cookie.indexOf(";", offset)
-			if (end == -1) {
-				end = cookie.length;
-			}
-			setStr = unescape(cookie.substring(offset, end));
-		}
-	}
-	return(setStr);
-}
 window.onload = function() {
   var density = 1/5;
   var interaction = true;
   document.getElementById("switchOn").style.backgroundColor="red";
   document.getElementById("density5").style.backgroundColor="red";
   document.getElementById("camera1").style.backgroundColor="red";
+  document.getElementById("switchOn2").style.backgroundColor="red";
+  document.getElementById("instantly").style.backgroundColor="red";
   var cameraType = 1;
   var cage = 10;
   var size = 2000;
-  /*var url = window.location
-  url.search = `?density=${density}`
-  window.history.pushState({path:url},'',url)*/
-  setCookie("density",`${density}`);
-  
+  var smoothness = true;
+  var teleport = true;
+  var activity = true
+
+
   function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min)) + min;
   }
@@ -51,7 +27,6 @@ window.onload = function() {
   }
   //x, y - координаты на плоскости, z - высота (в данной программе практически не играет роли)
   function initMatrix(callback) {
-    debugger
     amountOfCubes=(cage*cage*density)|0
     var coords = []
     var matrix = []
@@ -105,6 +80,7 @@ window.onload = function() {
   objCamera = new THREE.PerspectiveCamera(camera.fov, camera.aspect, camera.near, camera.far);
   objCamera.position.set(camera.positionX, camera.positionY, camera.positionZ);
   objCamera.lookAt(new THREE.Vector3(camera.lookX,camera.lookY,camera.lookZ));
+  
   //изменение состояния камеры
   /*var gui = new dat.GUI();
   gui.add(camera, 'positionX').min(-2000).max(2000).step(2);
@@ -119,18 +95,14 @@ window.onload = function() {
   scene.add(light);
 
   //плоскость
-  var geometryPlane = new THREE.PlaneGeometry(size, size, cage, cage);
-  var materialPlane = new THREE.MeshBasicMaterial({color: 0xffffff, vertexColors: THREE.FaceColors});
-  for (var i=0; i<geometryPlane.faces.length; i++) {
-    var color1 = new THREE.Color("rgb(245, 245, 220)");
-    var color2 = new THREE.Color("rgb(255, 255, 255)");
-    (((i/(cage*2)|0)%2)+(i%4<2))%2 ? geometryPlane.faces[i].color=color1 : geometryPlane.faces[i].color=color2
-  }
-  var objPlane = new THREE.Mesh(geometryPlane, materialPlane);
-  scene.add(objPlane);
+  var objPlane, geometryPlane, materialPlane
+  createPlane();
 
   function absToRel(coord) {
     return size/cage*coord-1000+size/cage/2
+  }
+  function relToAbs(coord) {
+    return parseInt((coord+1000)*cage/size,10)
   }
 
   var objCube, objCubes
@@ -146,10 +118,20 @@ window.onload = function() {
   var geometryCube = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
   var materialCube1 = new THREE.MeshBasicMaterial({color: 0x007BA7, wireFrame: false});
   var materialCube2 = new THREE.MeshBasicMaterial({color: 0x7FFF00, vertexColors: THREE.FaceColors});
+  
   //изменение состояния куба
   /*gui.add(cube, 'CUBEpositionX').min(0).max(9).step(1);
   gui.add(cube, 'CUBEpositionY').min(0).max(9).step(1);*/
   
+  function getIntersectionPoint(mouseX, mouseY) {
+    var vec = new THREE.Vector3(mouseX, mouseY, 0.5);
+    var pos = new THREE.Vector3();
+    vec.unproject(objCamera).sub(objCamera.position).normalize();
+    var distance = - objCamera.position.z / vec.z;
+    pos.copy(objCamera.position).add(vec.multiplyScalar(distance));
+    return pos
+    /*http://qaru.site/questions/127326/mouse-canvas-x-y-to-threejs-world-x-y-z*/
+  }
   function initCubes() {
     initMatrix(function(amountOfCubes, matrix) {
       matrixOfCubes = matrix
@@ -234,66 +216,197 @@ window.onload = function() {
   }
   //обновление координат куба
   function updateCubeCoords() {
+    /*console.log(`(x0;y0)=(${objCube.position.x};${objCube.position.y})`)
+    console.log(`(x;y)=(${cube.positionX};${cube.positionY})`)*/
     objCube.position.x=cube.positionX;
     objCube.position.y=cube.positionY;
+  }
+  //плавное перемещение куба
+  function initMovementSmoothly(coord, n) {
+    switch(coord) {
+      case 'y': {
+        beginY=cube.positionY
+        endY=beginY+200*Math.sign(n)
+        stepY=n
+        stepX=0
+        break
+      }
+      case 'x': {
+        beginX=cube.positionX
+        endX=beginX+200*Math.sign(n)
+        stepX=n
+        stepY=0
+        break
+      }
+    }
+  }
+  function moveSmoothly() {
+    beginX+=stepX
+    beginY+=stepY
+    cube.positionX=beginX
+    cube.positionY=beginY
+    if (cameraType==3) {
+      chooseCamera()
+    }
   }
   //обработка клавиш клавиатуры
   function handlekeyboardKey() {
     var x = cube.CUBEpositionX
     var y = cube.CUBEpositionY
     var f = false
-    switch (event.keyCode) {
-      case 38:
-      case 87: { 'w'
-        if (y!=9) {
-          if (matrixOfCubes[x][y+1]!=2 || !interaction) {
-            cube.CUBEpositionY++
-            f = true
-          }  
-        } 
-        break
-      }
-      case 40:
-      case 83: { 's'
-        if (y!=0) {
-          if (matrixOfCubes[x][y-1]!=2 || !interaction) {
-            cube.CUBEpositionY--
-            f = true
-          }
-        } 
-        break
-      }
-      case 37:
-      case 65: { 'a'
-        if (x!=0) {
-          if (matrixOfCubes[x-1][y]!=2 || !interaction) {
-            cube.CUBEpositionX--
-            f = true
-          }  
-        } 
-        break
-      }
-      case 39:
-      case 68: { 'd'
-        if (x!=9) {
-          if (matrixOfCubes[x+1][y]!=2 || !interaction) {
-            cube.CUBEpositionX++
-            f = true
-          }
+    var step = 10
+    if (activity) {
+      switch (event.keyCode) {
+        case 38:
+        case 87: { //'w'
+          if (y!=9) {
+            if (matrixOfCubes[x][y+1]!=2 || !interaction) {
+              if (smoothness) {
+                activity=false
+                initMovementSmoothly('y',step)
+              } else {
+                cube.CUBEpositionY++
+              }
+              f = true
+            }  
+          } 
+          break
         }
-        break
+        case 40:
+        case 83: { //'s'
+          if (y!=0) {
+            if (matrixOfCubes[x][y-1]!=2 || !interaction) {
+              if (smoothness) {
+                activity=false
+                initMovementSmoothly('y',-step)
+              } else {
+                cube.CUBEpositionY--
+              }
+              f = true
+            }
+          } 
+          break
+        }
+        case 37:
+        case 65: { //'a'
+          if (x!=0) {
+            if (matrixOfCubes[x-1][y]!=2 || !interaction) {
+              if (smoothness) {
+                activity=false
+                initMovementSmoothly('x',-step)
+              } else {
+                cube.CUBEpositionX--
+              }
+              f = true
+            }  
+          } 
+          break
+        }
+        case 39:
+        case 68: { //'d'
+          if (x!=9) {
+            if (matrixOfCubes[x+1][y]!=2 || !interaction) {
+              if (smoothness) {
+                activity=false
+                initMovementSmoothly('x',step)
+              } else {
+                cube.CUBEpositionX++
+              }
+              f = true
+            }
+          }
+          break
+        }
       }
-    }
-    if (f) {
-      matrixOfCubes[x][y]-- 
-      matrixOfCubes[cube.CUBEpositionX][cube.CUBEpositionY]++
-      cube.positionX=absToRel(cube.CUBEpositionX)
-      cube.positionY=absToRel(cube.CUBEpositionY)
-      if (cameraType=='3') chooseCamera()
+      if (f) {
+        matrixOfCubes[x][y]-- 
+        matrixOfCubes[cube.CUBEpositionX][cube.CUBEpositionY]++
+        if (!smoothness) {
+          cube.positionX=absToRel(cube.CUBEpositionX)
+          cube.positionY=absToRel(cube.CUBEpositionY)
+        }
+        if (cameraType=='3') chooseCamera()
+      }
     }
   }
+  //обработка нажатия ПКМ
+  function clickMouse() {
+    if (event.which==3) {
+      var x=event.clientX/canvas.getAttribute("width")*2-1
+      var y=-event.clientY/canvas.getAttribute("height")*2+1
+      var vec = getIntersectionPoint(x, y)
+      console.log("posX="+vec.x+" posY="+vec.y+" posZ="+vec.z)
+      if (vec.x>=-1000 && vec.x<=1000 && vec.y>=-1000 && vec.y<=1000) {
+        clearPlane()
+        var cellX = relToAbs(vec.x)
+        var cellY = relToAbs(vec.y)
+        selectCellPlane(cellX, cellY,2)
+      }
+    }
+  }
+  //обработка движения мыши
+  function moveMouse() {
+    var x=event.clientX/canvas.getAttribute("width")*2-1
+    var y=-event.clientY/canvas.getAttribute("height")*2+1
+    var vec = getIntersectionPoint(x, y)
+    if (vec.x>=-1000 && vec.x<=1000 && vec.y>=-1000 && vec.y<=1000) {
+      clearPlane()
+      var cellX = relToAbs(vec.x)
+      var cellY = relToAbs(vec.y)
+      selectCellPlane(cellX, cellY,1)
+    }
+  }
+  //плоскость имеет цвет по умолчанию (шахматная доска)
+  function clearPlane() {
+    debugger
+    materialPlane = new THREE.MeshBasicMaterial({color: 0xffffff, vertexColors: THREE.FaceColors});
+    for (var i=0; i<geometryPlane.faces.length; i++) {
+      var color1 = new THREE.Color("rgb(245, 245, 220)");
+      var color2 = new THREE.Color("rgb(255, 255, 255)");
+      (((i/(cage*2)|0)%2)+(i%4<2))%2 ? geometryPlane.faces[i].color=color1 : geometryPlane.faces[i].color=color2
+    }
+    objPlane=new THREE.Mesh(geometryPlane, materialPlane)
+    //deletePlane()
+    //createPlane()
+  }
+  //выделить ячейку розовым/красным цветом
+  function selectCellPlane(x, y, t) {
+    debugger
+    var color
+    t == 1 ? color =  new THREE.Color("rgb(250, 128, 114)") : color = new THREE.Color("rgb(220, 20, 60)")
+    var arr = getCellPlane(x, y)
+    arr.forEach((item, i)=>{geometryPlane.faces[i].color=color})
+    objPlane=new THREE.Mesh(geometryPlane, materialPlane)
+    //deletePlane()
+    //createPlane()
+  }
+  function createPlane() {
+    geometryPlane = new THREE.PlaneGeometry(size, size, cage, cage);
+    clearPlane();
+    objPlane = new THREE.Mesh(geometryPlane, materialPlane);
+    scene.add(objPlane);
+  }
+  function deletePlane() {
+    scene.children.forEach(item=>{
+      if (item.type=="Mesh" && item.geometry.type=="PlaneGeometry")
+        scene.remove(item)
+    })
+  }
+  function getCellPlane(x, y) {
+    var newY = 9 - y
+    var cell = 2*(10*newY+x)
+    return [cell, cell+1]
+  }
+  var beginX = cube.positionX, beginY = cube.positionY, endX = cube.positionX, endY = cube.positionY, stepX = 0, stepY = 0
   //анимация
   function loop() {
+    
+    if (beginX!=endX || beginY!=endY) moveSmoothly();
+    else {
+      cube.CUBEpositionY=relToAbs(cube.positionY);
+      cube.CUBEpositionX=relToAbs(cube.positionX);
+      activity=true
+    }
     updateCubeCoords();
     updateCameraState();
 
@@ -311,10 +424,23 @@ window.onload = function() {
     item.onclick = function(){
       cameraType=this.innerText
       Array.from(document.getElementsByClassName("camera")).forEach(item=>{
-        if (item.getAttribute("id")=="camera"+cameraType)
+        var id = item.getAttribute("id")
+        if (id=="camera"+cameraType)
           item.style.backgroundColor="red"
         else
           item.style.backgroundColor="gray"
+        if (item.style.backgroundColor=="red") {
+          /*if (id=="camera2") {
+            //реакция на нажатие камеры 2
+            document.getElementById("tableSettings").style.height="90%"
+            document.getElementById("settings").style.height="150px"
+            document.getElementById("adding").style.display="table-row"
+          } else {
+            document.getElementById("tableSettings").style.height="90%"
+            document.getElementById("settings").style.height="120px"
+            document.getElementById("adding").style.display="none"
+          }*/
+        }
       })
       chooseCamera()
     };
@@ -347,6 +473,33 @@ window.onload = function() {
       })
     };
   })
+  document.querySelectorAll(".smoothness").forEach(item=>{
+    item.onclick = function(){
+      smoothness=(this.innerText=='вкл' ? true : false)
+      if (smoothness) {
+        document.getElementById("switchOn2").style.backgroundColor="red"
+        document.getElementById("switchOff2").style.backgroundColor="gray"
+      } else {
+        document.getElementById("switchOff2").style.backgroundColor="red"
+        document.getElementById("switchOn2").style.backgroundColor="gray"
+      }
+    };
+  })
+  document.querySelectorAll(".moving").forEach(item=>{
+    item.onclick = function(){
+      teleport=(this.innerText=='сразу' ? true : false)
+      if (teleport) {
+        document.getElementById("instantly").style.backgroundColor="red"
+        document.getElementById("route").style.backgroundColor="gray"
+      } else {
+        document.getElementById("route").style.backgroundColor="red"
+        document.getElementById("instantly").style.backgroundColor="gray"
+      }
+      /*при условии, что выбрана ячейка и известны ее координаты, сработает некоторый код*/
+    };
+  })
   addEventListener("keydown", handlekeyboardKey);
+  addEventListener("click", clickMouse);
+  addEventListener("mousemove", moveMouse);
   loop();
 }
