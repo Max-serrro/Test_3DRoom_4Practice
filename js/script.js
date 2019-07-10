@@ -12,7 +12,14 @@ window.onload = function() {
   var smoothness = true;
   var teleport = true;
   var activity = true
-
+  var clickedOnce = false
+  var lastX, lastY
+  var goTR = false
+  var route = []
+  var moved = true
+  var clickedMouseWhenGoTR = false
+  var pressedKeyWhenGoTR = false
+  var copyEvent
 
   function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min)) + min;
@@ -105,7 +112,7 @@ window.onload = function() {
     return parseInt((coord+1000)*cage/size,10)
   }
 
-  var objCube, objCubes
+  var objCube, objCubes, objMarker1, objMarker2
   var cubeSize = size/cage
   var cube = {
     positionX: 0,
@@ -114,11 +121,45 @@ window.onload = function() {
     CUBEpositionX: 0,
     CUBEpositionY: 0
   }
+
+  var cube2037 = {
+    positionX: 0,
+    positionY: 0,
+    positionZ: cubeSize/2
+  }
+  var cube2362 = {
+    positionX: 0,
+    positionY: 0,
+    positionZ: cubeSize/2
+  }
+  //sound2037 издает оранжевый кубик
+  var sound2037 = new Howl({
+    autoplay: true,
+    buffer: true,
+    loop: true,
+    volume: 0.0,
+    src: ['/audio/2037.mp3']
+  })
+  //sound2362 издает малиновый кубик
+  var sound2362 = new Howl({
+    autoplay: true,
+    buffer: true,
+    loop: true,
+    volume: 0.0,
+    src: ['/audio/2362.mp3']
+  })
+
   var matrixOfCubes
   var geometryCube = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+  var geometryMarker = new THREE.BoxGeometry(cubeSize, cubeSize, 10);
   var materialCube1 = new THREE.MeshBasicMaterial({color: 0x007BA7, wireFrame: false});
   var materialCube2 = new THREE.MeshBasicMaterial({color: 0x7FFF00, vertexColors: THREE.FaceColors});
-  
+  var materialCube2037 = new THREE.MeshBasicMaterial({color: 0xFF8C00, wireFrame: false});
+  var materialCube2362 = new THREE.MeshBasicMaterial({color: 0xE30B5C, wireFrame: false});
+  var materialMarker1 = new THREE.MeshBasicMaterial({color: new THREE.Color("rgb(250, 128, 114)"), wireFrame: false});
+  var materialMarker2 = new THREE.MeshBasicMaterial({color: new THREE.Color("rgb(220, 20, 60)"), wireFrame: false});
+  var objMarker1 = new THREE.Mesh(geometryMarker, materialMarker1);
+  var objMarker2 = new THREE.Mesh(geometryMarker, materialMarker2);
   //изменение состояния куба
   /*gui.add(cube, 'CUBEpositionX').min(0).max(9).step(1);
   gui.add(cube, 'CUBEpositionY').min(0).max(9).step(1);*/
@@ -132,7 +173,7 @@ window.onload = function() {
     return pos
     /*http://qaru.site/questions/127326/mouse-canvas-x-y-to-threejs-world-x-y-z*/
   }
-  function initCubes() {
+  function initCubes(callback) {
     initMatrix(function(amountOfCubes, matrix) {
       matrixOfCubes = matrix
   
@@ -141,11 +182,13 @@ window.onload = function() {
       
       //прочие кубы
       objCubes = []
-      for (var i=0; i<amountOfCubes-1; i++) {
+      objCubes[0] = new THREE.Mesh(geometryCube, materialCube2037); //оранжевый
+      objCubes[1] = new THREE.Mesh(geometryCube, materialCube2362); //малиновый
+      for (var i=2; i<amountOfCubes-1; i++) {
         for (var j=0; j<geometryCube.faces.length; j++) {
           geometryCube.faces[j].color.setRGB(Math.random(),Math.random(),Math.random());
         }
-        objCubes[i] = new THREE.Mesh(geometryCube, materialCube2);
+        objCubes[i] = new THREE.Mesh(geometryCube, materialCube2); //золотистый
       }
    
       //установка кубов на плоскость   
@@ -163,6 +206,13 @@ window.onload = function() {
               cube.CUBEpositionY=y
               objCube.position.set(newX, newY, cube.positionZ);
             } else { //прочие кубы
+              if (n==0) {
+                cube2037.positionX=newX
+                cube2037.positionY=newY
+              } else if (n==1) {
+                cube2362.positionX=newX
+                cube2362.positionY=newY
+              }
               objCubes[n].position.set(newX, newY, cube.positionZ);
               n++
             }
@@ -172,10 +222,26 @@ window.onload = function() {
   
       scene.add(objCube);
       objCubes.forEach(item=>scene.add(item));
+      initMarker1()
+      initMarker2()
+      scene.add(objMarker1, objMarker2);
+      return callback()
     })
   }
-  initCubes()
+  initCubes(function() {
+    initMoving()
+  })
 
+  function initMarker1() {
+    objMarker1.position.x=0
+    objMarker1.position.y=0
+    objMarker1.position.z=-10
+  }
+  function initMarker2() {
+    objMarker2.position.x=0
+    objMarker2.position.y=0
+    objMarker2.position.z=-10
+  }
   //обновление состояния камеры
   function updateCameraState() {
     objCamera.position.x=camera.positionX;
@@ -255,7 +321,11 @@ window.onload = function() {
     var y = cube.CUBEpositionY
     var f = false
     var step = 10
-    if (activity) {
+    if (goTR) {
+      pressedKeyWhenGoTR = true
+      goTR=false
+      copyEvent = event
+    } else if (activity) {
       switch (event.keyCode) {
         case 38:
         case 87: { //'w'
@@ -263,10 +333,11 @@ window.onload = function() {
             if (matrixOfCubes[x][y+1]!=2 || !interaction) {
               if (smoothness) {
                 activity=false
+                initMoving()
                 initMovementSmoothly('y',step)
-              } else {
+              } //else {
                 cube.CUBEpositionY++
-              }
+              //}
               f = true
             }  
           } 
@@ -278,10 +349,11 @@ window.onload = function() {
             if (matrixOfCubes[x][y-1]!=2 || !interaction) {
               if (smoothness) {
                 activity=false
+                initMoving()
                 initMovementSmoothly('y',-step)
-              } else {
+              } //else {
                 cube.CUBEpositionY--
-              }
+              //}
               f = true
             }
           } 
@@ -293,10 +365,11 @@ window.onload = function() {
             if (matrixOfCubes[x-1][y]!=2 || !interaction) {
               if (smoothness) {
                 activity=false
+                initMoving()
                 initMovementSmoothly('x',-step)
-              } else {
+              } //else {
                 cube.CUBEpositionX--
-              }
+              //}
               f = true
             }  
           } 
@@ -308,10 +381,11 @@ window.onload = function() {
             if (matrixOfCubes[x+1][y]!=2 || !interaction) {
               if (smoothness) {
                 activity=false
+                initMoving()
                 initMovementSmoothly('x',step)
-              } else {
+              } //else {
                 cube.CUBEpositionX++
-              }
+              //}
               f = true
             }
           }
@@ -325,22 +399,270 @@ window.onload = function() {
           cube.positionX=absToRel(cube.CUBEpositionX)
           cube.positionY=absToRel(cube.CUBEpositionY)
         }
-        if (cameraType=='3') chooseCamera()
+        console.log("handlekeyboardKey()")
+        console.log("cube.CUBEpositionX=",cube.CUBEpositionX)
+        console.log("cube.CUBEpositionY=",cube.CUBEpositionY)
+        /*for (var x=0; x<matrixOfCubes.length; x++) {
+          var str = ''
+          for (var y=0; y<matrixOfCubes[x].length; y++) {        
+            str+=(matrixOfCubes[x][y]+' ')
+          } 
+          console.log(str)
+        }*/
       }
     }
   }
-  //обработка нажатия ПКМ
+  //инициализация полей
+  function setFieldsNearby(mat, x, y, n) {
+    var f = false
+    var isChanged = false
+    if (x-1>=0) { //три клетки слева
+      /*if (y-1>=0) { //клетка сверху
+        if (mat[x-1][y-1]=='F')
+          f = true
+        else if (mat[x-1][y-1]=='-')
+          mat[x-1][y-1]=n
+      }*/
+      /*if (y+1<=mat.length) { //клетка снизу
+        if (mat[x-1][y+1]=='F')
+          f = true
+        else if (mat[x-1][y+1]=='-')
+          mat[x-1][y+1]=n
+      }*/
+      if (mat[x-1][y]=='F')
+          f = true
+      else if (mat[x-1][y]=='-') //клетка по центру 
+      {
+        mat[x-1][y]=n
+        isChanged = true
+      }
+        
+    }
+    if (x+1<=mat[x].length-1) { //три клетки справа
+      /*if (y-1>=0) { //клетка сверху
+        if (mat[x+1][y-1]=='F')
+          f = true
+        else if (mat[x+1][y-1]=='-')
+          mat[x+1][y-1]=n
+      }*/
+      /*if (y+1<=mat.length) { //клетка снизу
+        if (mat[x+1][y+1]=='F')
+          f = true
+        else if (mat[x+1][y+1]=='-')
+          mat[x+1][y+1]=n
+      }*/
+      if (mat[x+1][y]=='F')
+          f = true
+      else if (mat[x+1][y]=='-') //клетка по центру
+      {
+        mat[x+1][y]=n
+        isChanged = true
+      }
+    } //клетка сверху и клетка снизу
+    if (y-1>=0) { //клетка сверху
+      if (mat[x][y-1]=='F')
+          f = true
+      else if (mat[x][y-1]=='-')
+      {
+        mat[x][y-1]=n
+        isChanged = true
+      }  
+    } 
+    if (y+1<=mat.length) { //клетка снизу
+      if (mat[x][y+1]=='F')
+        f = true
+      else if (mat[x][y+1]=='-') 
+      {
+        mat[x][y+1]=n
+        isChanged = true
+      }
+    }
+    return [f, isChanged]
+  }
+  //получить координаты F
+  function Fcoords(mat) {
+    for (var x=0; x<mat.length; x++) {
+      for (var y=0; y<mat[x].length; y++) {        
+        if (mat[x][y]=='F') return [x,y]
+      } 
+    } 
+  }
+  //получить минимальное поле рядом
+  function getMinCell(mat, x, y) {
+    var xmin, ymin
+    var existsMin = false
+    var min = parseInt(mat[x][y], 10)
+    if (x-1>=0) { //три клетки слева
+      if (mat[x-1][y]!='x' && mat[x-1][y]!='-' && mat[x-1][y]<min) //клетка по центру 
+      {
+        min=mat[x-1][y]
+        xmin=x-1
+        ymin=y
+        existsMin = true
+      }
+    }
+    if (x+1<=mat[x].length-1) { //три клетки справа
+      if (mat[x+1][y]!='x' && mat[x+1][y]!='-' && mat[x+1][y]<min) //клетка по центру 
+      {
+        min=mat[x+1][y]
+        xmin=x+1
+        ymin=y
+        existsMin = true
+      }
+    } //клетка сверху и клетка снизу
+    if (y-1>=0) { //клетка сверху
+      if (mat[x][y-1]!='x' && mat[x][y-1]!='-' && mat[x][y-1]<min) //клетка по центру 
+      {
+        min=mat[x][y-1]
+        xmin=x
+        ymin=y-1
+        existsMin = true
+      }
+    } 
+    if (y+1<=mat.length) { //клетка снизу
+      if (mat[x][y+1]!='x' && mat[x][y+1]!='-' && mat[x][y+1]<min) //клетка по центру 
+      {
+        min=mat[x][y+1]
+        xmin=x
+        ymin=y+1
+        existsMin = true
+      }
+    }
+    return [xmin, ymin, existsMin]
+  }
+  //движение по маршруту
+  function goTheRoute() {
+    if (route.length>1) {
+      var firstX = route[route.length-1][0]
+      var secondX = route[route.length-2][0]
+      var firstY = route[route.length-1][1]
+      var secondY = route[route.length-2][1]
+      var step = 10
+      if (firstX-secondX>0) { //влево
+        initMovementSmoothly('x',-step)
+        cube.CUBEpositionX--
+      } else if (firstX-secondX<0) { //вправо
+        initMovementSmoothly('x',step)
+        cube.CUBEpositionX++
+      } else if (firstY-secondY<0) { //вниз
+        initMovementSmoothly('y',step)
+        cube.CUBEpositionY++
+      } else { //вверх
+        initMovementSmoothly('y',-step)
+        cube.CUBEpositionY--
+      }
+      route.splice(route.length-1, 1);
+      matrixOfCubes[firstX][firstY]-- 
+      matrixOfCubes[cube.CUBEpositionX][cube.CUBEpositionY]++
+    } else {
+      route=[]
+      goTR=false
+    }
+    moved=false
+  }
+  //работа алгоритма Ли
+  function executeAlgorithm() {
+    var f = false
+    var isChanged = true
+    if (matrixOfCubes[lastX][lastY]==2) isChanged = false
+    var algMatrix = []
+    for (var x=0; x<matrixOfCubes.length; x++) {
+      algMatrix[x] = []
+      for (var y=0; y<matrixOfCubes[x].length; y++) {        
+        algMatrix[x][y] = matrixOfCubes[x][y]
+        if (algMatrix[x][y]==1 || algMatrix[x][y]==3)  algMatrix[x][y]='0' //точка отсчета
+        else if (algMatrix[x][y]==2 && interaction) algMatrix[x][y]='х' //препятствие
+        else algMatrix[x][y]='-' //пустота
+      } 
+    } 
+    algMatrix[lastX][lastY]='F' //конечная
+    var count = 0
+    while (!f && isChanged) {
+      var isChanged1 = false
+      for (var x=0; x<matrixOfCubes.length; x++) {
+        for (var y=0; y<matrixOfCubes[x].length; y++) {        
+          if (algMatrix[x][y]==count+'') {
+            var arr = setFieldsNearby(algMatrix, x, y, (count+1)+'')
+            f1 = arr[0] //найдена ли конечная рядом
+            isChanged2 = arr[1] //произошла ли инициализация рядом
+            f = f || f1
+            isChanged1 = isChanged1 || isChanged2
+          }
+        } 
+      } 
+      isChanged = isChanged && isChanged1
+      count++
+    }
+    for (var x=0; x<matrixOfCubes.length; x++) {
+      var str = ''
+      for (var y=0; y<matrixOfCubes[x].length; y++) {        
+        str+=(algMatrix[x][y]+' ')
+      } 
+      console.log(str)
+    }
+    if (f) {
+      route = []
+      route[0]=Fcoords(algMatrix)
+      algMatrix[route[0][0]][route[0][1]]=count+''
+      var length = 0
+      var s = false
+      while (!s) {
+        var arr = getMinCell(algMatrix, route[length][0], route[length][1])
+        s = !arr[2]
+        if (arr[2]) {
+          route[length+1]=[]
+          route[length+1][0]=arr[0]
+          route[length+1][1]=arr[1]
+          length++
+        }
+      }
+      goTR=true
+      console.log(route)
+    } else {
+      alert("Препятствие мешает добраться до выбранной позиции")
+    }
+  }
+  //обработка нажатия ЛКМ
   function clickMouse() {
-    if (event.which==3) {
+    if (event.which==1 && activity) {
       var x=event.clientX/canvas.getAttribute("width")*2-1
       var y=-event.clientY/canvas.getAttribute("height")*2+1
       var vec = getIntersectionPoint(x, y)
-      console.log("posX="+vec.x+" posY="+vec.y+" posZ="+vec.z)
+      //console.log("posX="+vec.x+" posY="+vec.y+" posZ="+vec.z)
       if (vec.x>=-1000 && vec.x<=1000 && vec.y>=-1000 && vec.y<=1000) {
-        clearPlane()
+        //clearPlane()
+        
         var cellX = relToAbs(vec.x)
         var cellY = relToAbs(vec.y)
-        selectCellPlane(cellX, cellY,2)
+        if (!clickedOnce) {
+          clickedOnce = true
+          selectCellPlane(cellX, cellY,2)
+        } else {
+          if (lastX==cellX && lastY==cellY) { 
+            if (teleport) {
+              matrixOfCubes[cube.CUBEpositionX][cube.CUBEpositionY]-- 
+              matrixOfCubes[cellX][cellY]++
+              cube.CUBEpositionX=cellX
+              cube.CUBEpositionY=cellY
+              cube.positionX=absToRel(cube.CUBEpositionX)
+              cube.positionY=absToRel(cube.CUBEpositionY)
+              console.log("clickMouse()")
+              console.log("cube.CUBEpositionX=",cube.CUBEpositionX)
+              console.log("cube.CUBEpositionY=",cube.CUBEpositionY)
+            } else { //вызов алгоритма
+              //activity = false        
+              if (!goTR) {
+                initMoving()
+                executeAlgorithm()
+              } else {
+                clickedMouseWhenGoTR = true
+              }
+            }
+          } 
+          clickedOnce = false
+        }      
+        lastX = cellX
+        lastY = cellY  
       }
     }
   }
@@ -350,15 +672,17 @@ window.onload = function() {
     var y=-event.clientY/canvas.getAttribute("height")*2+1
     var vec = getIntersectionPoint(x, y)
     if (vec.x>=-1000 && vec.x<=1000 && vec.y>=-1000 && vec.y<=1000) {
-      clearPlane()
+      //clearPlane()
       var cellX = relToAbs(vec.x)
       var cellY = relToAbs(vec.y)
       selectCellPlane(cellX, cellY,1)
+      if (cellX!=lastX && cellY!=lastY) clickedOnce=false
+    } else {
+      initMarker1()
     }
   }
   //плоскость имеет цвет по умолчанию (шахматная доска)
   function clearPlane() {
-    debugger
     materialPlane = new THREE.MeshBasicMaterial({color: 0xffffff, vertexColors: THREE.FaceColors});
     for (var i=0; i<geometryPlane.faces.length; i++) {
       var color1 = new THREE.Color("rgb(245, 245, 220)");
@@ -371,12 +695,29 @@ window.onload = function() {
   }
   //выделить ячейку розовым/красным цветом
   function selectCellPlane(x, y, t) {
-    debugger
-    var color
-    t == 1 ? color =  new THREE.Color("rgb(250, 128, 114)") : color = new THREE.Color("rgb(220, 20, 60)")
-    var arr = getCellPlane(x, y)
-    arr.forEach((item, i)=>{geometryPlane.faces[i].color=color})
-    objPlane=new THREE.Mesh(geometryPlane, materialPlane)
+    x = absToRel(x)
+    y = absToRel(y)
+    switch (t) {
+      case 1: {
+        if (!activity && x!=absToRel(lastX) && y!=absToRel(lastY) || activity) {
+          objMarker1.position.x=x
+          objMarker1.position.y=y
+          objMarker1.position.z=0
+          initMarker2()
+        }
+        break
+      }
+      case 2: {
+        objMarker2.position.x=x
+        objMarker2.position.y=y
+        objMarker2.position.z=0
+        initMarker1()
+        break
+      }
+    }
+    //var arr = getCellPlane(x, y)
+    //arr.forEach((item, i)=>{geometryPlane.faces[i].color=color})
+    ///objPlane=new THREE.Mesh(geometryPlane, materialPlane)
     //deletePlane()
     //createPlane()
   }
@@ -397,19 +738,72 @@ window.onload = function() {
     var cell = 2*(10*newY+x)
     return [cell, cell+1]
   }
-  var beginX = cube.positionX, beginY = cube.positionY, endX = cube.positionX, endY = cube.positionY, stepX = 0, stepY = 0
+  var beginX, beginY, endX, endY, stepX = 0, stepY = 0
+  function initMoving() {
+    beginX = cube.positionX
+    beginY = cube.positionY
+    endX = cube.positionX
+    endY = cube.positionY
+  }
+  //определение расстояния от точки до точки по координатам в 2/3-хмерном пространстве 
+  function distance2D(x1, y1, x2, y2) {
+    return Math.sqrt(Math.pow(x2-x1,2)+Math.pow(y2-y1,2))
+  }
+  function distance3D(x1, y1, z1, x2, y2, z2) {
+    return Math.sqrt(Math.pow(x2-x1,2)+Math.pow(y2-y1,2)+Math.pow(z2-z1,2))
+  }
+  //аудио
+  function updateAudio() {
+    var dis2037 = distance2D(cube.positionX, cube.positionY, cube2037.positionX, cube2037.positionY)
+    var dis2362 = distance2D(cube.positionX, cube.positionY, cube2362.positionX, cube2362.positionY)
+    dis2037=Math.round(dis2037*100)/100
+    dis2362=Math.round(dis2362*100)/100
+    var vol2037, vol2362
+    if (dis2037>1000) {
+      vol2037=0
+    } else {
+      vol2037=1-dis2037/1000
+    }
+    if (dis2362>1000) {
+      vol2362=0
+    } else {
+      vol2362=1-dis2362/1000
+    }
+    sound2037.volume(vol2037)
+    sound2362.volume(vol2362)
+  }
   //анимация
   function loop() {
-    
-    if (beginX!=endX || beginY!=endY) moveSmoothly();
-    else {
-      cube.CUBEpositionY=relToAbs(cube.positionY);
-      cube.CUBEpositionX=relToAbs(cube.positionX);
+    /*if (clickedMouseWhenGoTR && moved) {
+      
+      //executeAlgorithm()
+    } else*/ if (goTR && moved) goTheRoute()
+    if (beginX!=endX || beginY!=endY) {
+      moveSmoothly();
+    } else {
+      /*cube.CUBEpositionY=relToAbs(cube.positionY);
+      cube.CUBEpositionX=relToAbs(cube.positionX);*/
+      if (clickedMouseWhenGoTR) {
+        //if (((endX-100)%200==0) && ((endY-100)%200==0)) {
+          goTR = false
+          route=[]
+          executeAlgorithm()
+          clickedMouseWhenGoTR = false 
+        //}
+      }
+      if (pressedKeyWhenGoTR) {
+        debugger
+        route=[]
+        pressedKeyWhenGoTR = false
+        dispatchEvent(copyEvent)
+      }
+      moved=true
       activity=true
     }
+    
     updateCubeCoords();
     updateCameraState();
-
+    updateAudio();
     renderer.render(scene, objCamera);
     requestAnimationFrame(function() {loop();});
   }
@@ -468,9 +862,14 @@ window.onload = function() {
         else
           item.style.backgroundColor="gray"
       })
+      goTR = false
+      moved = false
+      route = []
       deleteAllCubes(function() {
-        initCubes()
-      })
+        initCubes(function() {
+          initMoving()
+        })
+      })    
     };
   })
   document.querySelectorAll(".smoothness").forEach(item=>{
@@ -487,10 +886,32 @@ window.onload = function() {
   })
   document.querySelectorAll(".moving").forEach(item=>{
     item.onclick = function(){
-      teleport=(this.innerText=='сразу' ? true : false)
+      teleport=(this.innerText=='телепорт' ? true : false)
       if (teleport) {
         document.getElementById("instantly").style.backgroundColor="red"
         document.getElementById("route").style.backgroundColor="gray"
+        if (goTR) {
+          var x = route[0][0]
+          var y = route[0][1]
+          var curX, curY
+          for (var i=0; i<matrixOfCubes.length; i++) {
+            for (var j=0; j<matrixOfCubes[i].length; j++) {
+              if (matrixOfCubes[i][j]==1 || matrixOfCubes[i][j]==3) {
+                curX = i
+                curY = j
+              }
+            }
+          }
+          matrixOfCubes[curX][curY]-- 
+          matrixOfCubes[x][y]++
+          cube.CUBEpositionX=x
+          cube.CUBEpositionY=y
+          cube.positionX=absToRel(cube.CUBEpositionX)
+          cube.positionY=absToRel(cube.CUBEpositionY)
+          goTR=false
+          route=[]
+          initMoving()
+        }
       } else {
         document.getElementById("route").style.backgroundColor="red"
         document.getElementById("instantly").style.backgroundColor="gray"
