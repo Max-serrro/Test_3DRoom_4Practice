@@ -5,16 +5,13 @@
   <link rel="stylesheet" href="css/style.css">
   <script src="js/lib/three.min.js"></script>
   <script src="js/lib/dat.gui.min.js"></script>
-  <script src="js/lib/howler.js"></script>
- 
-
   <script src="js/script.js"></script>
   <style>
     #settings {
       position: absolute; 
       top: 1px;
       width: 250px; 
-      height: 150px;
+      height: 180px;
       z-index: 999999; 
       background-color: #222; 
       padding: 5px;
@@ -51,6 +48,13 @@
       width: 48%;
     }
     .smoothness {
+      float:left;
+      text-align: center;
+      background-color: gray; 
+      margin: 1%;
+      width: 48%;
+    }
+	.audio {
       float:left;
       text-align: center;
       background-color: gray; 
@@ -105,7 +109,22 @@
               <div class="moving" id="route">маршрут</div>
           </td>   
       </tr>
+	  <tr>
+		<td class="leftTable">Звук</td>
+         <td>
+            <div class="audio" id="switchOn3">вкл</div>
+            <div class="audio" id="switchOff3">выкл</div>
+         </td> 	
+	  </tr>
     </table>
+	<div style="display: none">
+		<audio id="audio2037">
+			<source src="audio/2037.mp3" type="audio/mpeg">
+		</audio>
+		<audio id="audio2362">
+			<source src="audio/2362.mp3" type="audio/mpeg">
+		</audio>
+	</div>
   </div>
 </body>
 </html>

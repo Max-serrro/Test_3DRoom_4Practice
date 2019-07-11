@@ -20,7 +20,36 @@ window.onload = function() {
   var clickedMouseWhenGoTR = false
   var pressedKeyWhenGoTR = false
   var copyEvent
-
+  var playAudio = false //true
+  /*var promise1 = document.querySelector('#audio2037')
+  if (promise1 !== undefined) {
+	promise1.then(_ => {
+		playAudio = playAudio && true
+	}).catch(error => {
+		playAudio = playAudio && false
+	});
+  }
+  var promise2 = document.querySelector('#audio2362')
+  if (promise2 !== undefined) {
+	promise2.then(_ => {
+		playAudio = playAudio && true
+	}).catch(error => {
+		playAudio = playAudio && false
+	});
+  }*/
+  var sound2037 = document.getElementById("audio2037")
+  var sound2362 = document.getElementById("audio2362")
+  sound2037.loop=true
+  sound2362.loop=true
+  /*if (playAudio) {
+	document.getElementById("switchOn3").style.backgroundColor="red";
+	sound2037.play();
+	sound2362.play();
+  } else {
+	document.getElementById("switchOff3").style.backgroundColor="red";
+  }*/
+  document.getElementById("switchOff3").style.backgroundColor="red";
+	
   function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min)) + min;
   }
@@ -133,21 +162,22 @@ window.onload = function() {
     positionZ: cubeSize/2
   }
   //sound2037 издает оранжевый кубик
-  var sound2037 = new Howl({
+  
+  /*var sound2037 = new Howl({
     autoplay: true,
     buffer: true,
     loop: true,
     volume: 0.0,
     src: ['/audio/2037.mp3']
-  })
+  })*/
   //sound2362 издает малиновый кубик
-  var sound2362 = new Howl({
+  /*var sound2362 = new Howl({
     autoplay: true,
     buffer: true,
     loop: true,
     volume: 0.0,
     src: ['/audio/2362.mp3']
-  })
+  })*/
 
   var matrixOfCubes
   var geometryCube = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
@@ -769,8 +799,8 @@ window.onload = function() {
     } else {
       vol2362=1-dis2362/1000
     }
-    sound2037.volume(vol2037)
-    sound2362.volume(vol2362)
+    sound2037.volume=vol2037
+    sound2362.volume=vol2362
   }
   //анимация
   function loop() {
@@ -917,6 +947,23 @@ window.onload = function() {
         document.getElementById("instantly").style.backgroundColor="gray"
       }
       /*при условии, что выбрана ячейка и известны ее координаты, сработает некоторый код*/
+    };
+  })
+  document.querySelectorAll(".audio").forEach(item=>{
+    item.onclick = function(){
+		debugger
+      playAudio=(this.innerText=='вкл' ? true : false)
+      if (playAudio) {
+        document.getElementById("switchOn3").style.backgroundColor="red"
+        document.getElementById("switchOff3").style.backgroundColor="gray"
+		sound2037.play()
+		sound2362.play()
+      } else {
+        document.getElementById("switchOff3").style.backgroundColor="red"
+        document.getElementById("switchOn3").style.backgroundColor="gray"
+		sound2037.pause()
+		sound2362.pause()
+      }
     };
   })
   addEventListener("keydown", handlekeyboardKey);
